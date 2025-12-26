@@ -1,9 +1,10 @@
 import socket
-from protocol import *
+from protocol.protocol import *
 from helpers import *
 import time
 
-HOST = "127.0.0.1"
+#HOST = "127.0.0.1"
+HOST = "62.60.178.229"
 PORT = 10008
 
 class Connection:
