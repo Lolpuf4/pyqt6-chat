@@ -5,7 +5,7 @@ import time
 
 #HOST = "127.0.0.1"
 HOST = "62.60.178.229"
-PORT = 10008
+PORT = 10009
 
 class Connection:
     def __init__(self):
@@ -46,6 +46,8 @@ class Connection:
     def send_info(self, data, type):
         if type == "TXT":
             send_text(self.socket, data)
+        elif type == "JSN":
+            send_json(self.socket, data)
 
     def disconnect(self):
         try:
