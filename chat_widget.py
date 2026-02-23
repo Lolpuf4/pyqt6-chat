@@ -9,8 +9,9 @@ from PyQt6.QtCore import Qt
 
 
 class ChatWidget(QWidget):
-    def __init__(self, user, chat_history):
+    def __init__(self, user, chat_history, connection):
         super().__init__()
+        self.connection = connection
         self.user = user
         self.chat_history = chat_history  # list of {"sender":..., "text":...}
         self.init_ui()
@@ -24,7 +25,9 @@ class ChatWidget(QWidget):
         self.input_box = QLineEdit()
         self.input_box.setPlaceholderText("Type a message...")
 
-        layout.addWidget(QLabel(f"Chat with {self.user}"))
+        self.chatbox_name = QLabel(f"Chat with {self.user}, Offline ")
+
+        layout.addWidget(self.chatbox_name)
         layout.addWidget(self.chat_display)
         layout.addWidget(self.input_box)
 
@@ -70,17 +73,15 @@ class ChatWidget(QWidget):
         self.chat_display.moveCursor(QTextCursor.MoveOperation.End)
 
     def send_message(self):
-        print(12)
+
         text = self.input_box.text().strip()
-        print(text)
+
         if not text:
             return
 
         #self.chat_history.append({"sender": "You", "text": text})
         sender = self.chat_history["senderID"]
-        print(self.user)
-        print(self.chat_history)
         self.chat_history["msgs"].append({'messages.text': text, 'messages.date': '15/12/25', 'messages.time': '16:39:31', 'users.username': self.user, 'message_history.senderID': sender, 'message_history.receiverID': '2'})
-        print(self.chat_history)
         self.input_box.clear()
         self.update_chat_display()
+        self.connection.send_info({"msg": text, "user": self.user}, "JSN")

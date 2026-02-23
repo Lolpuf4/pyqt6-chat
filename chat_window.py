@@ -12,7 +12,8 @@ from chat_widget import  ChatWidget
 
 
 class GetData(QThread):
-    result = pyqtSignal(dict)
+    msg = pyqtSignal(dict)
+    online_users = pyqtSignal(dict)
 
     def __init__(self, server_connection):
         super().__init__()
@@ -22,12 +23,14 @@ class GetData(QThread):
     def run(self):
         while self.server_connection.connection:
             information = self.server_connection.get_info()
-            print(information)
-            # if information == b"1":
-            #     break
+            if information == "1":
+                break
             # elif information == b"":
             #     continue
-            self.result.emit(information)
+            if "online_users"  in information:
+                self.online_users.emit(information)
+            else:
+                self.msg.emit(information)
 
 
 
@@ -49,7 +52,8 @@ class ChatWindow(QWidget):
 
         self.init_ui()
         self.data_receiver = GetData(self.server_connection)
-        self.data_receiver.result.connect(self.update_chat)
+        self.data_receiver.msg.connect(self.update_chat)
+        self.data_receiver.online_users.connect(self.online_users_update)
         self.data_receiver.start()
         self.current_user = None
 
@@ -58,9 +62,7 @@ class ChatWindow(QWidget):
     def update_chat(self, data):
         username = data["users.username"]
         self.chat_data[username]["msgs"].append(data)
-        file = open("jsons/history.json", "w", encoding ="UTF-8")
-        json.dump(self.chat_data, file)
-        file.close()
+
 
         self.chat_widgets[username].update_chat_display()
         if self.current_user != username:
@@ -71,19 +73,26 @@ class ChatWindow(QWidget):
 
 
 
+    def online_users_update(self, data):
 
+        if self.current_user != None:
+            online = data["online_users"][self.current_user]
+            self.chat_widgets[self.current_user].chatbox_name.setText(f"Chat with {self.current_user}, {online} ")
 
     def load_initial_messages(self):
         data = self.server_connection.get_info()
 
-        file = open("jsons/history.json", "r", encoding ="UTF-8")
-        local_history = json.load(file)
-        file.close()
-        for username in local_history:
-            difference = len(data[username]["msgs"]) - len(local_history[username]["msgs"])
-            self.new_msgs[username] = difference
+        for username in data:
+            unread_msgs_count = 0
+            for msg in data[username]["msgs"]:
+
+                if msg["messages.isRead"] == "0":
+                    unread_msgs_count += 1
+
+            self.new_msgs[username] = unread_msgs_count
 
         return data
+
 
     def init_ui(self):
         main_layout = QHBoxLayout(self)
@@ -103,10 +112,10 @@ class ChatWindow(QWidget):
         user_layout.addStretch()
 
         self.chat_stack = QStackedWidget()
-        initial_widget = ChatWidget("Choose chat", {"msgs": [], "senderID": "0"})
+        initial_widget = ChatWidget("Choose chat", {"msgs": [], "senderID": "0"}, self.server_connection)
         self.chat_stack.addWidget(initial_widget)
         for user in self.users:
-            chat_widget = ChatWidget(user, self.chat_data[user])
+            chat_widget = ChatWidget(user, self.chat_data[user], self.server_connection)
             self.chat_stack.addWidget(chat_widget)
             self.chat_widgets[user] = chat_widget
 
@@ -125,7 +134,6 @@ class ChatWindow(QWidget):
             else:
                 btn.setStyleSheet("")
         widget = self.chat_widgets.get(user)
-        print(self.chat_data)
         if self.chat_data[user]["msgs"]:
             last_msg = self.chat_data[user]["msgs"][-1]["messages.text"]
         else:
@@ -134,3 +142,11 @@ class ChatWindow(QWidget):
             self.chat_stack.setCurrentWidget(widget)
             self.user_buttons[user].setText(f"{user}, {last_msg}")
             self.new_msgs[user] = 0
+        all_msg_ids = self.get_all_msg_ids(user)
+        self.server_connection.send_info({"all_msg_ids": all_msg_ids}, "JSN")
+
+    def get_all_msg_ids(self, user):
+        all_ids = []
+        for record in self.chat_data[user]["msgs"]:
+            all_ids.append(record["messages.id"])
+        return all_ids

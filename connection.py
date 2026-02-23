@@ -2,9 +2,9 @@ import socket
 from protocol.protocol import *
 from helpers import *
 import time
+import sys
 
-#HOST = "127.0.0.1"
-HOST = "62.60.178.229"
+HOST = "62.60.178.229" if len(sys.argv) > 1 else "127.0.0.1"
 PORT = 10009
 
 class Connection:
@@ -29,11 +29,15 @@ class Connection:
             return False, "Invalid credentials"
         elif information[0] == "TXT":
             save_cookie(username, password)
+            send_text(self.socket, "desktop")
             return True, "Login successful"
         return False, "Unexpected server response"
 
     def get_info(self):
+
         information = recv(self.socket)
+        print(information)
+
         if information[0] == "TXT":
             return information[1]
         elif information[0] == "JSN":
@@ -41,6 +45,11 @@ class Connection:
             data = json.load(file)
             file.close()
             return data
+        elif information[0] == "DIC":
+            return json.loads(information[1])
+        else:
+
+            raise ConnectionError("unknown type in get_info")
 
 
     def send_info(self, data, type):
@@ -51,9 +60,12 @@ class Connection:
 
     def disconnect(self):
         try:
+
             self.connection = False
-            time.sleep(0.2)
+
             send_error(self.socket, "1")
+            time.sleep(1)
+
             self.socket.close()
         except Exception as e:
             print(e)
